@@ -93,7 +93,7 @@ export default function SettingsScreen() {
     const result = await saveFileToDownloads(filename, csv);
     if (result.success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Export Successful', `Users.csv saved to Downloads folder.\n\n${users.length} records exported.`);
+      Alert.alert('Export Successful', `Users.csv shared successfully.\n\n${users.length} records exported.`);
     } else {
       Alert.alert('Export Failed', result.error || 'Failed to export users');
     }
@@ -105,7 +105,7 @@ export default function SettingsScreen() {
     const result = await saveFileToDownloads(filename, csv);
     if (result.success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Export Successful', `SIMCards.csv saved to Downloads folder.\n\n${sims.length} records exported.`);
+      Alert.alert('Export Successful', `SIMCards.csv shared successfully.\n\n${sims.length} records exported.`);
     } else {
       Alert.alert('Export Failed', result.error || 'Failed to export SIM cards');
     }
@@ -117,7 +117,7 @@ export default function SettingsScreen() {
     const result = await saveFileToDownloads(filename, csv);
     if (result.success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Export Successful', `Passwords.csv saved to Downloads folder.\n\n${passwords.length} records exported.`);
+      Alert.alert('Export Successful', `Passwords.csv shared successfully.\n\n${passwords.length} records exported.`);
     } else {
       Alert.alert('Export Failed', result.error || 'Failed to export passwords');
     }
@@ -158,7 +158,7 @@ export default function SettingsScreen() {
     const result = await saveBackupFile(backup);
     if (result.success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Backup Successful', `Full backup saved to Downloads.\n\nUsers: ${users.length}, SIMs: ${sims.length}, Passwords: ${passwords.length}`);
+      Alert.alert('Backup Successful', `Full backup shared successfully.\n\nUsers: ${users.length}, SIMs: ${sims.length}, Passwords: ${passwords.length}`);
     } else {
       Alert.alert('Backup Failed', result.error || 'Failed to create backup');
     }
@@ -192,6 +192,7 @@ export default function SettingsScreen() {
     }
   });
 
+  // ✅ FIX: एक-एक करके share — तीनों साथ में नहीं
   const handleDownloadSamples = () => withLoading('samples', async () => {
     const today = new Date().toISOString().split('T')[0];
     const nextMonth = new Date(); nextMonth.setMonth(nextMonth.getMonth() + 1);
@@ -203,22 +204,30 @@ export default function SettingsScreen() {
     const simsCsv = `userId,vendor,number,plan,planType,purchaseDate,nextBillingDate,reminderDate,dueDate,status,amount\n,Airtel,9876543210,2GB/Day Unlimited,monthly,${today},${nextMonthStr},${reminderStr},${nextMonthStr},active,599\n,Jio,8765432109,1.5GB/Day Calls,quarterly,${today},${nextMonthStr},${reminderStr},${nextMonthStr},active,399`;
     const passwordsCsv = 'userId,title,username,password,url,notes\n,Gmail,user@gmail.com,MyPass@123,https://mail.google.com,Primary email\n,Facebook,myusername,FB@Pass456,https://facebook.com,Social account';
 
-    const r1 = await saveFileToDownloads('Users.csv', usersCsv);
-    const r2 = await saveFileToDownloads('SIMCards.csv', simsCsv);
-    const r3 = await saveFileToDownloads('Passwords.csv', passwordsCsv);
-
-    const success = r1.success && r2.success && r3.success;
-    if (success) {
-      Alert.alert('Sample Files Downloaded', 'Users.csv, SIMCards.csv, and Passwords.csv have been saved to Downloads.');
-    } else {
-      Alert.alert('Download Note', 'Some files may not have saved. Please check your Downloads folder.');
+    const r1 = await saveFileToDownloads('Sample_Users.csv', usersCsv);
+    if (!r1.success) {
+      Alert.alert('Download Failed', r1.error || 'Could not share Sample_Users.csv');
+      return;
     }
+    const r2 = await saveFileToDownloads('Sample_SIMCards.csv', simsCsv);
+    if (!r2.success) {
+      Alert.alert('Download Failed', r2.error || 'Could not share Sample_SIMCards.csv');
+      return;
+    }
+    const r3 = await saveFileToDownloads('Sample_Passwords.csv', passwordsCsv);
+    if (!r3.success) {
+      Alert.alert('Download Failed', r3.error || 'Could not share Sample_Passwords.csv');
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert('Sample Files Ready', '3 sample CSV files shared successfully.\n\nSave each to your Downloads folder when prompted.');
   });
 
   return (
     <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientMid, COLORS.gradientEnd]} style={{ flex: 1 }}>
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <Text style={styles.headerTitle}>Settings</Text>
+        {/* ✅ FIX: UTF-8 encoding — proper characters */}
         <Text style={styles.headerSub}>Import • Export • Backup</Text>
       </View>
 
@@ -301,13 +310,14 @@ export default function SettingsScreen() {
         <View style={styles.infoBox}>
           <MaterialCommunityIcons name="information-outline" size={16} color={COLORS.primary} />
           <Text style={styles.infoText}>
-            On Android: files are saved directly to your Downloads folder (media permission required). On web/browser: files download automatically via your browser. On iOS: files are shared via the native share sheet.
+            Files are shared via your device's share sheet. Save to Downloads, Google Drive, or any app. On web, files download automatically via browser.
           </Text>
         </View>
 
         <View style={styles.appInfo}>
           <MaterialCommunityIcons name="lightning-bolt" size={20} color={COLORS.primary} />
           <Text style={styles.appInfoTitle}>KTech UtilManager</Text>
+          {/* ✅ FIX: proper bullet and dash characters */}
           <Text style={styles.appInfoVersion}>Version 1.0.0 • Fully Offline</Text>
           <Text style={styles.appInfoVersion}>Android 10–16 Compatible</Text>
         </View>

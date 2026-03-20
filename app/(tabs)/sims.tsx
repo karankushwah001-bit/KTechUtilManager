@@ -207,7 +207,7 @@ function SIMFormModal({
               )}
               {form.nextBillingDate ? (
                 <Text style={fStyles.reminderNote}>
-                  <MaterialCommunityIcons name="bell" size={11} color={COLORS.accentYellow} /> Reminder: {formatDisplayDate(calculateReminderDate(form.nextBillingDate))}
+                  🔔 Reminder: {formatDisplayDate(calculateReminderDate(form.nextBillingDate))}
                 </Text>
               ) : null}
             </Field>
@@ -325,7 +325,7 @@ function SIMCardItem({
 
           {owner ? (
             <Text style={styles.ownerText}>
-              <MaterialCommunityIcons name="account" size={11} color={COLORS.textDim} /> {owner.name}
+              👤 {owner.name}
             </Text>
           ) : null}
 
@@ -367,7 +367,7 @@ export default function SIMsScreen() {
       vendor: sim.vendor,
       number: sim.number,
       plan: sim.plan,
-      planType: sim.planType || 'monthly',
+      planType: sim.planType as PlanType || 'monthly',
       purchaseDate: sim.purchaseDate || todayStr(),
       nextBillingDate: sim.nextBillingDate || sim.dueDate || '',
       amount: sim.amount,
@@ -420,7 +420,7 @@ export default function SIMsScreen() {
   const handleRechargeDone = async (sim: SIMCard) => {
     Alert.alert(
       'Recharge Done?',
-      `Mark SIM ${sim.number} as recharged?\n\nNew billing cycle starts today.\nNext billing: ${formatDisplayDate(calculateNextBillingDate(todayStr(), sim.planType || 'monthly'))}`,
+      `Mark SIM ${sim.number} as recharged?\n\nNew billing cycle starts today.\nNext billing: ${formatDisplayDate(calculateNextBillingDate(todayStr(), sim.planType as PlanType || 'monthly'))}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -478,7 +478,9 @@ export default function SIMsScreen() {
         ))}
       </ScrollView>
 
+      {/* ✅ FIX: key={filter} — filter बदलने पर FlatList re-mount होगी, cards expand नहीं होंगे */}
       <FlatList
+        key={filter}
         data={filteredSims}
         keyExtractor={i => i.id}
         renderItem={({ item }) => (

@@ -21,7 +21,8 @@ import { PasswordEntry, useApp } from '@/context/AppContext';
 const PW_FIELDS = [
   { key: 'title', label: 'Title', placeholder: 'Gmail, Facebook, etc.' },
   { key: 'username', label: 'Username / Email', placeholder: 'user@example.com' },
-  { key: 'password', label: 'Password', placeholder: 'Enter password', secureTextEntry: false },
+  // ✅ FIX: secureTextEntry: true — password input में text hide होगा
+  { key: 'password', label: 'Password', placeholder: 'Enter password', secureTextEntry: true },
   { key: 'url', label: 'Website URL', placeholder: 'https://example.com' },
   { key: 'notes', label: 'Notes', placeholder: 'Optional notes', multiline: true },
 ];
