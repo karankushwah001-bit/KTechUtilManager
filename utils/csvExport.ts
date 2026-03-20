@@ -1,91 +1,86 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
+import { PasswordEntry, SIMCard, User } from '@/context/AppContext';
 
-function webDownload(filename: string, content: string) {
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+function escapeCSV(value: string | undefined | null): string {
+  if (value === undefined || value === null) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function toCSVRow(fields: string[]): string {
+  return fields.map(escapeCSV).join(',');
+}
+
+export function buildUsersCSV(users: User[]): string {
+  const header = 'name,phone,email,address,createdAt';
+  const rows = users.map(u => toCSVRow([u.name, u.phone, u.email, u.address, u.createdAt]));
+  return [header, ...rows].join('\n');
+}
+
+export function buildSIMsCSV(sims: SIMCard[]): string {
+  const header = 'userId,vendor,number,plan,planType,purchaseDate,nextBillingDate,reminderDate,dueDate,status,amount,createdAt';
+  const rows = sims.map(s => toCSVRow([
+    s.userId, s.vendor, s.number, s.plan, s.planType || 'monthly',
+    s.purchaseDate || '', s.nextBillingDate || s.dueDate || '',
+    s.reminderDate || '', s.dueDate || '', s.status, s.amount, s.createdAt,
+  ]));
+  return [header, ...rows].join('\n');
+}
+
+export function buildPasswordsCSV(passwords: PasswordEntry[]): string {
+  const header = 'userId,title,username,password,url,notes,createdAt';
+  const rows = passwords.map(p => toCSVRow([p.userId, p.title, p.username, p.password, p.url, p.notes, p.createdAt]));
+  return [header, ...rows].join('\n');
+}
+
+export async function exportUsersCSV(users: User[]): Promise<string> { return buildUsersCSV(users); }
+export async function exportSIMsCSV(sims: SIMCard[]): Promise<string> { return buildSIMsCSV(sims); }
+export async function exportPasswordsCSV(passwords: PasswordEntry[]): Promise<string> { return buildPasswordsCSV(passwords); }
+
+function webDownload(filename: string, content: string): void {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
 
-async function saveAndShare(
-  filename: string,
-  content: string,
-  mimeType: string
-): Promise<{ success: boolean; error?: string }> {
+async function shareFile(filename: string, content: string): Promise<{ success: boolean; error?: string }> {
   try {
     const cacheDir = FileSystem.cacheDirectory;
-    if (!cacheDir) {
-      return { success: false, error: 'FileSystem not available on this device.' };
-    }
+    if (!cacheDir) return { success: false, error: 'FileSystem not available' };
     const fileUri = cacheDir + filename;
-    await FileSystem.writeAsStringAsync(fileUri, content, {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
+    await FileSystem.writeAsStringAsync(fileUri, content, { encoding: FileSystem.EncodingType.UTF8 });
     const canShare = await Sharing.isAvailableAsync();
-    if (!canShare) {
-      return { success: false, error: 'Sharing not available on this device.' };
+    if (canShare) {
+      await Sharing.shareAsync(fileUri, { mimeType: 'text/csv', dialogTitle: `Save ${filename}` });
+      return { success: true };
     }
-    await Sharing.shareAsync(fileUri, {
-      mimeType,
-      dialogTitle: `Save ${filename}`,
-      UTI: mimeType,
-    });
-    return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err?.message || 'Unknown error' };
+    return { success: false, error: 'Sharing not available' };
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'Unknown error' };
   }
-}
-
-export async function exportUsersCSV(users: any[]): Promise<string> {
-  const header = 'name,phone,email,address';
-  const rows = users.map(u =>
-    [u.name, u.phone, u.email, u.address]
-      .map(v => `"${(v || '').replace(/"/g, '""')}"`)
-      .join(',')
-  );
-  return [header, ...rows].join('\n');
-}
-
-export async function exportSIMsCSV(sims: any[]): Promise<string> {
-  const header = 'userId,vendor,number,plan,planType,purchaseDate,nextBillingDate,reminderDate,dueDate,status,amount';
-  const rows = sims.map(s =>
-    [s.userId, s.vendor, s.number, s.plan, s.planType,
-     s.purchaseDate, s.nextBillingDate, s.reminderDate, s.dueDate, s.status, s.amount]
-      .map(v => `"${(v || '').replace(/"/g, '""')}"`)
-      .join(',')
-  );
-  return [header, ...rows].join('\n');
-}
-
-export async function exportPasswordsCSV(passwords: any[]): Promise<string> {
-  const header = 'userId,title,username,password,url,notes';
-  const rows = passwords.map(p =>
-    [p.userId, p.title, p.username, p.password, p.url, p.notes]
-      .map(v => `"${(v || '').replace(/"/g, '""')}"`)
-      .join(',')
-  );
-  return [header, ...rows].join('\n');
 }
 
 export async function saveFileToDownloads(
   filename: string,
   content: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; path?: string; error?: string }> {
   if (Platform.OS === 'web') {
-    try {
-      webDownload(filename, content);
-      return { success: true };
-    } catch (e: any) {
-      return { success: false, error: e?.message };
-    }
+    webDownload(filename, content);
+    return { success: true };
   }
-  const mime = filename.endsWith('.json') ? 'application/json' : 'text/csv';
-  return saveAndShare(filename, content, mime);
+  return shareFile(filename, content);
 }
 
 export async function saveBackupFile(
@@ -93,12 +88,21 @@ export async function saveBackupFile(
 ): Promise<{ success: boolean; error?: string }> {
   const filename = `KTech_Backup_${new Date().toISOString().split('T')[0]}.json`;
   if (Platform.OS === 'web') {
-    try {
-      webDownload(filename, content);
-      return { success: true };
-    } catch (e: any) {
-      return { success: false, error: e?.message };
-    }
+    webDownload(filename, content);
+    return { success: true };
   }
-  return saveAndShare(filename, content, 'application/json');
+  try {
+    const cacheDir = FileSystem.cacheDirectory;
+    if (!cacheDir) return { success: false, error: 'FileSystem not available' };
+    const fileUri = cacheDir + filename;
+    await FileSystem.writeAsStringAsync(fileUri, content, { encoding: FileSystem.EncodingType.UTF8 });
+    const canShare = await Sharing.isAvailableAsync();
+    if (canShare) {
+      await Sharing.shareAsync(fileUri, { mimeType: 'application/json', dialogTitle: 'Save Backup' });
+      return { success: true };
+    }
+    return { success: false, error: 'Sharing not available' };
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'Unknown error' };
+  }
 }
